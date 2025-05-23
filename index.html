@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mapa Mundial de Intenciones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 20px;
+            color: #333;
+        }
+
+        /* Estilo para el contenedor de banners, para centrarlos */
+        .banner-container {
+            text-align: center; /* Centra el contenido inline/inline-block */
+            margin: 20px auto; /* Espacio superior/inferior y centrado horizontal */
+            max-width: 100%; /* Asegura que no desborde */
+        }
+        .banner-container img {
+            display: block; /* Para que margin: auto funcione correctamente en la imagen */
+            margin: 0 auto; /* Centra la imagen dentro del contenedor */
+            border: none; /* Quita el borde predeterminado de las imágenes de enlace */
+        }
+
+
+        #map {
+            width: 90%; /* Ajustado para mejor visualización */
+            max-width: 800px; /* Ancho máximo para el mapa */
+            height: 500px; /* Aumentado para mejor visualización */
+            margin: 20px auto; /* Centrar el mapa */
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        #name-form { /* Este ya no se usa como formulario principal */
+            margin: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+
+        #chatbox {
+            max-width: 700px; /* Ajustado para mejor visualización */
+            margin: 30px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.2);
+            text-align: left; /* Asegurar la alineación del chat */
+        }
+
+        #messages {
+            height: 250px; /* Aumentado para más mensajes */
+            overflow-y: scroll;
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .message-item {
+            margin-bottom: 8px;
+            line-height: 1.4;
+            color: #555;
+        }
+        .message-item strong {
+            color: #007bff; /* Color para el nombre */
+        }
+        .message-item span.intention {
+            color: #28a745; /* Color para la intención */
+            font-style: italic;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #name-input-field {
+            margin-right: 10px;
+            width: 200px;
+        }
+        #message-input-field {
+            width: calc(100% - 120px);
+            margin-right: 10px;
+        }
+    </style>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    />
+</head>
+<body>
+    <h1>Mapa Mundial de Intenciones y Conexiones</h1>
+
+    <div class="banner-container">
+        <a href="https://clicks.pipaffiliates.com/c?m=131373&amp;c=1024465" referrerpolicy="no-referrer-when-downgrade">
+            <img src="https://ads.pipaffiliates.com/i/131373?c=1024465" width="320" height="100" referrerpolicy="no-referrer-when-downgrade"/>
+        </a>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="banner-container">
+        <a href="https://clicks.pipaffiliates.com/c?m=131353&amp;c=1024465" referrerpolicy="no-referrer-when-downgrade">
+            <img src="https://ads.pipaffiliates.com/i/131353?c=1024465" width="300" height="250" referrerpolicy="no-referrer-when-downgrade"/>
+        </a>
+    </div>
+
+    <div id="chatbox">
+        <h2>Comparte tu Intención</h2>
+        <div id="messages"></div>
+        <input type="text" id="name-input-field" placeholder="Tu nombre" required />
+        <input type="text" id="message-input-field" placeholder="Escribe tu intención aquí..." />
+        <button onclick="addIntention()">Compartir Intención</button>
+    </div>
+
+    <script>
+        // Iniciar el mapa
+        const map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let userName = '';
+        let intentions = [];
+
+        // --- NUEVO: Lista de palabras prohibidas ---
+        const forbiddenWords = [
+            'puta', 'cabrón', 'mierda', 'coño', 'joder', 'gilipollas', 'imbécil',
+            'estúpido', 'idiota', 'fuck', 'shit', 'asshole', 'bitch', 'cunt', 'idiot'
+            // Añade más palabras según necesites, en minúsculas
+        ];
+
+        // --- NUEVA FUNCIÓN: Verificar palabras prohibidas ---
+        function containsForbiddenWords(text) {
+            const lowerText = text.toLowerCase();
+            for (const word of forbiddenWords) {
+                const regex = new RegExp(`\\b${word}\\b`);
+                if (regex.test(lowerText)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Función para cargar las intenciones guardadas en LocalStorage al inicio
+        function loadIntenciones() {
+            const storedIntenciones = localStorage.getItem('worldIntentions');
+            if (storedIntenciones) {
+                intentions = JSON.parse(storedIntenciones);
+                intentions.forEach(item => {
+                    if (!containsForbiddenWords(item.intention)) {
+                        addMessageToChat(item.name, item.intention);
+                    }
+                });
+            }
+        }
+
+        // Función para guardar las intenciones en LocalStorage
+        function saveIntenciones() {
+            localStorage.setItem('worldIntentions', JSON.stringify(intentions));
+        }
+
+        // Función para añadir mensajes al chat
+        function addMessageToChat(name, intention) {
+            const container = document.getElementById("messages");
+            const p = document.createElement("p");
+            p.classList.add('message-item');
+            p.innerHTML = `<strong>${name}</strong>: ${intention} ✨`;
+            container.appendChild(p);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Función para añadir la intención
+        async function addIntention() {
+            const nameInput = document.getElementById("name-input-field");
+            const messageInput = document.getElementById("message-input-field");
+
+            const name = nameInput.value.trim();
+            const intention = messageInput.value.trim();
+
+            if (name === "" || intention === "") {
+                alert("Por favor, introduce tu nombre y tu intención.");
+                return;
+            }
+
+            if (containsForbiddenWords(intention)) {
+                alert("Tu intención contiene palabras no permitidas. Por favor, sé respetuoso.");
+                messageInput.value = "";
+                return;
+            }
+
+            userName = name;
+
+            try {
+                const response = await fetch("https://ipapi.co/json/");
+                const data = await response.json();
+                const lat = data.latitude;
+                const lon = data.longitude;
+
+                const popupContent = `<strong>${name}:</strong> ${intention}<br><em>(Desde ${data.city || 'un lugar en el mundo'})</em>`;
+                L.marker([lat, lon])
+                    .addTo(map)
+                    .bindPopup(popupContent)
+                    .openPopup();
+
+                map.setView([lat, lon], 5);
+
+                addMessageToChat(name, intention);
+
+                intentions.push({ name: name, intention: intention, lat: lat, lon: lon, timestamp: new Date().toISOString() });
+                saveIntenciones();
+
+                messageInput.value = '';
+            } catch (error) {
+                console.error("Error al obtener la ubicación o al añadir la intención:", error);
+                alert("No se pudo obtener la ubicación o añadir la intención. Inténtalo de nuevo.");
+                addMessageToChat(name, intention + " (ubicación no disponible)");
+                intentions.push({ name: name, intention: intention, lat: null, lon: null, timestamp: new Date().toISOString() });
+                saveIntenciones();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadIntenciones);
+
+        document.getElementById("message-input-field").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                addIntention();
+            }
+        });
+
+        document.getElementById("name-input-field").addEventListener("change", function() {
+            userName = this.value.trim();
+        });
+
+    </script>
+</body>
+</html>
