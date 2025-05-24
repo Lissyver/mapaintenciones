@@ -18,50 +18,40 @@
             color: #333;
         }
 
-        /* Estilo para el contenedor de banners, para centrarlos */
         .banner-container {
-            text-align: center; /* Centra el contenido inline/inline-block */
-            margin: 20px auto; /* Espacio superior/inferior y centrado horizontal */
-            max-width: 100%; /* Asegura que no desborde */
+            text-align: center;
+            margin: 20px auto;
+            max-width: 100%;
         }
         .banner-container img {
-            display: block; /* Para que margin: auto funcione correctamente en la imagen */
-            margin: 0 auto; /* Centra la imagen dentro del contenedor */
-            border: none; /* Quita el borde predeterminado de las imágenes de enlace */
+            display: block;
+            margin: 0 auto;
+            border: none;
         }
 
 
         #map {
-            width: 90%; /* Ajustado para mejor visualización */
-            max-width: 800px; /* Ancho máximo para el mapa */
-            height: 500px; /* Aumentado para mejor visualización */
-            margin: 20px auto; /* Centrar el mapa */
+            width: 90%;
+            max-width: 800px;
+            height: 500px;
+            margin: 20px auto;
             border: 1px solid #ccc;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
-        #name-form { /* Este ya no se usa como formulario principal */
-            margin: 20px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: inline-block;
-        }
-
         #chatbox {
-            max-width: 700px; /* Ajustado para mejor visualización */
+            max-width: 700px;
             margin: 30px auto;
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 8px rgba(0,0,0,0.2);
-            text-align: left; /* Asegurar la alineación del chat */
+            text-align: left;
         }
 
         #messages {
-            height: 250px; /* Aumentado para más mensajes */
+            height: 250px;
             overflow-y: scroll;
             border: 1px solid #e0e0e0;
             padding: 10px;
@@ -76,10 +66,10 @@
             color: #555;
         }
         .message-item strong {
-            color: #007bff; /* Color para el nombre */
+            color: #007bff;
         }
         .message-item span.intention {
-            color: #28a745; /* Color para la intención */
+            color: #28a745;
             font-style: italic;
         }
 
@@ -158,16 +148,15 @@
         }).addTo(map);
 
         let userName = '';
-        let intentions = []; // This array will now hold data fetched from Apps Script
+        let intentions = [];
 
-        // Google Apps Script Web App URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCzQWq7nd-ixQXWKyh84QAZYB0HPVdfdbfrdn0QRXY9T0o5pmkIzs1VDE5EikVdb373g/exec';
+        // ¡IMPORTANTE! Pega aquí la URL de la aplicación web que copiaste en el Paso 2.6.
+        const APPS_SCRIPT_URL = '1K17O-b0rpFfy44ZM_JxLVzAkaE1Nc4BMHfXdMU1rNno'; 
 
         // Forbidden words list
         const forbiddenWords = [
             'puta', 'cabrón', 'mierda', 'coño', 'joder', 'gilipollas', 'imbécil',
             'estúpido', 'idiota', 'fuck', 'shit', 'asshole', 'bitch', 'cunt', 'idiot'
-            // Add more words as needed, in lowercase
         ];
 
         // Function to check for forbidden words
@@ -185,32 +174,37 @@
         // Function to load intentions from Google Apps Script
         async function loadIntenciones() {
             try {
-                const response = await fetch(APPS_SCRIPT_URL);
+                const response = await fetch(APPS_SCRIPT_URL, { mode: 'cors' });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                intentions = data; // Assign fetched data to the intentions array
+                intentions = data;
 
-                // Clear existing messages before loading new ones to prevent duplicates
                 document.getElementById("messages").innerHTML = '';
+                map.eachLayer(function (layer) {
+                    if (layer instanceof L.Marker && layer !== map.attributionControl) {
+                        map.removeLayer(layer);
+                    }
+                });
 
                 intentions.forEach(item => {
-                    // Assuming column headers in Google Sheet are 'Nombre', 'Intencion', 'Latitud', 'Longitud'
+                    const lat = parseFloat(item.Latitud);
+                    const lon = parseFloat(item.Longitud);
+
                     if (!containsForbiddenWords(item.Intencion)) {
                         addMessageToChat(item.Nombre, item.Intencion);
-                        // Add marker to map if coordinates exist
-                        if (item.Latitud && item.Longitud) {
-                            const popupContent = `<strong>${item.Nombre}:</strong> ${item.Intencion}<br><em>(Desde un lugar en el mundo)</em>`; // City might not be in sheet
-                            L.marker([item.Latitud, item.Longitud])
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            const popupContent = `<strong>${item.Nombre}:</strong> ${item.Intencion}<br><em>(Desde un lugar en el mundo)</em>`;
+                            L.marker([lat, lon])
                                 .addTo(map)
                                 .bindPopup(popupContent);
                         }
                     }
                 });
             } catch (error) {
-                console.error("Error loading intentions from Google Apps Script:", error);
-                alert("No se pudieron cargar las intenciones. Por favor, inténtalo de nuevo más tarde.");
+                console.error("Error al cargar intenciones desde Google Apps Script:", error);
+                alert("No se pudieron cargar las intenciones. Por favor, inténtalo de nuevo más tarde. Verifica la consola para más detalles.");
             }
         }
 
@@ -219,9 +213,9 @@
             const container = document.getElementById("messages");
             const p = document.createElement("p");
             p.classList.add('message-item');
-            p.innerHTML = `<strong>${name}</strong>: ${intention} ✨`; // Emoji added here
+            p.innerHTML = `<strong>${name}</strong>: ${intention} ✨`;
             container.appendChild(p);
-            container.scrollTop = container.scrollHeight; // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
         }
 
         // Function to add an intention to Google Apps Script
@@ -243,13 +237,12 @@
                 return;
             }
 
-            userName = name; // Store name for potential future use (e.g., pre-filling)
+            userName = name;
 
             let lat = null;
             let lon = null;
             let city = 'un lugar en el mundo';
 
-            // Get location by IP
             try {
                 const geoResponse = await fetch("https://ipapi.co/json/");
                 const geoData = await geoResponse.json();
@@ -258,7 +251,6 @@
                 city = geoData.city || 'un lugar en el mundo';
             } catch (geoError) {
                 console.warn("Could not get location by IP:", geoError);
-                // Continue without location if it fails
             }
 
             const payload = {
@@ -275,7 +267,8 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    mode: 'cors'
                 });
 
                 if (!scriptResponse.ok) {
@@ -285,7 +278,6 @@
                 const result = await scriptResponse.json();
                 if (result.status === 'success') {
                     console.log("Intention saved to Google Sheet.");
-                    // Add the new intention to the chat and map immediately for responsiveness
                     addMessageToChat(name, intention);
                     if (lat && lon) {
                         const popupContent = `<strong>${name}:</strong> ${intention}<br><em>(Desde ${city})</em>`;
@@ -293,32 +285,29 @@
                             .addTo(map)
                             .bindPopup(popupContent)
                             .openPopup();
-                        map.setView([lat, lon], 5); // Center and zoom to new location
+                        map.setView([lat, lon], 5);
                     } else {
                         alert("Intención guardada, pero la ubicación no pudo ser determinada.");
                     }
-                    messageInput.value = ''; // Clear intention input
+                    messageInput.value = '';
                 } else {
-                    alert("Error al guardar la intención: " + (result.message || "Error desconocido."));
+                    alert("Error al guardar la intención: " + (result.message || "Error desconocido. Verifica la consola para más detalles."));
                 }
             } catch (error) {
-                console.error("Error sending intention to Google Apps Script:", error);
-                alert("No se pudo guardar la intención en el servidor. Por favor, inténtalo de nuevo.");
+                console.error("Error al enviar intención a Google Apps Script:", error);
+                alert("No se pudo guardar la intención en el servidor. Por favor, inténtalo de nuevo. Verifica la consola para más detalles.");
             }
         }
 
-        // Load intentions when the page loads
         document.addEventListener('DOMContentLoaded', loadIntenciones);
 
-        // Allow sending with Enter key in the intention input field
         document.getElementById("message-input-field").addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
-                event.preventDefault(); // Prevent new line in input
+                event.preventDefault();
                 addIntention();
             }
         });
 
-        // Update userName when name input changes (optional)
         document.getElementById("name-input-field").addEventListener("change", function() {
             userName = this.value.trim();
         });
@@ -326,4 +315,5 @@
     </script>
 </body>
 </html>
+
 
